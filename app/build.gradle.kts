@@ -1,6 +1,9 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.jetbrains.kotlin.serialization)
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.hilt) apply false
 }
 
 android {
@@ -36,6 +39,11 @@ android {
 }
 
 dependencies {
+
+    implementation(libs.androidx.navigation.compose)
+    // Hilt: inyección de dependencias y generación de código con KSP.
+    implementation(libs.hilt.android)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)
@@ -51,4 +59,13 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    //Nav3
+    implementation(libs.androidx.navegation3.runtime)
+    implementation(libs.androidx.navegation3.ui)
+
+    implementation(libs.kotlinx.serialization.core)
+
+    implementation("androidx.compose.material:material-icons-extended:1.6.8")
+
 }
