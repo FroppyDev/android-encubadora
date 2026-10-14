@@ -1,5 +1,9 @@
 package com.fic.driver_app_ti.ui.theme.session
 
+import com.fic.encubadorafic.ui.sessions.AuthUiState
+import com.fic.encubadorafic.ui.sessions.AuthFeedback
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +30,7 @@ private val Muted = Color(0xFF77869A)
 fun Login(
     onLogin: (String, String) -> Unit,
     onGoToRegister: () -> Unit,
+    state: AuthUiState = AuthUiState(),
 ) {
     var usuario by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -54,6 +59,8 @@ fun Login(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -119,7 +126,7 @@ fun Login(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Usuario",
+                            text = "Correo institucional",
                             fontWeight = FontWeight.SemiBold,
                             color = Navy,
                             fontSize = 14.sp
@@ -129,6 +136,8 @@ fun Login(
 
                         OutlinedTextField(
                             value = usuario,
+                            enabled = !state.busy,
+                            isError = state.fields.containsKey("email"),
                             onValueChange = { usuario = it },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = {
@@ -137,7 +146,7 @@ fun Login(
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Text
+                                keyboardType = KeyboardType.Email
                             ),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Blue,
@@ -165,6 +174,8 @@ fun Login(
 
                         OutlinedTextField(
                             value = password,
+                            enabled = !state.busy,
+                            isError = state.fields.containsKey("password"),
                             onValueChange = { password = it },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = {
@@ -206,6 +217,9 @@ fun Login(
 
                     Spacer(modifier = Modifier.height(30.dp))
 
+                    AuthFeedback(state)
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     // Botón de inicio de sesión
                     Button(
                         onClick = {
@@ -218,11 +232,11 @@ fun Login(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Blue
                         ),
-                        enabled = usuario.isNotBlank() &&
+                        enabled = !state.busy && usuario.isNotBlank() &&
                                 password.isNotBlank()
                     ) {
                         Text(
-                            text = "Iniciar sesión",
+                            text = if (state.busy) "Ingresando…" else "Iniciar sesión",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -242,6 +256,7 @@ fun Login(
 
                         TextButton(
                             onClick = onGoToRegister,
+                            enabled = !state.busy,
                             contentPadding = PaddingValues(
                                 start = 6.dp,
                                 end = 0.dp

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -49,6 +50,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -70,17 +72,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.fic.encubadorafic.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
+    viewModel: MainViewModel = hiltViewModel(),
     onNavigateToSearch: () -> Unit,
+    userName: String,
+    onLogout: () -> Unit,
 ) {
 
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
+
+    val state by viewModel.uiState.collectAsState()
 
     val pager = rememberPagerState(
         pageCount = { HomeTabs.entries.size })
@@ -108,6 +116,7 @@ fun MainScreen(
                 drawerContainerColor = Color(Color.White.value)
             ) {
 
+                NavigationDrawerItem(label = { Text("Cerrar sesión") }, selected = false, onClick = onLogout)
                 Spacer(modifier = Modifier.height(24.dp))
 
 
@@ -127,7 +136,7 @@ fun MainScreen(
                     )
 
                     Text(
-                        text = "Kevin Medina",
+                        text = userName,
                         fontWeight = FontWeight.Bold,
                         fontSize = 22.sp,
                         textAlign = TextAlign.Center,
@@ -277,11 +286,22 @@ fun MainScreen(
 
                 when (HomeTabs.entries[page]) {
                     HomeTabs.Explorar -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize()
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(10.dp)
                         ) {
 
-                            Text("Pagina explorar")
+                            items(state.proyectos.size, key = { item -> item }) { item ->
+
+                                ProyectItem(
+                                    name = state.proyectos[item].title,
+                                    description = state.proyectos[item].description,
+                                    category = state.proyectos[item].summary
+                                )
+
+                            }
+
 
                         }
                     }

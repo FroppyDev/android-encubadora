@@ -1,5 +1,7 @@
 package com.fic.driver_app_ti.ui.theme.session
 
+import com.fic.encubadorafic.ui.sessions.AuthUiState
+import com.fic.encubadorafic.ui.sessions.AuthFeedback
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,9 +31,11 @@ fun Registro(
     onRegister: (
         nombre: String,
         usuario: String,
-        password: String
+        password: String,
+        confirmation: String
     ) -> Unit,
-    onBackToLogin: () -> Unit
+    onBackToLogin: () -> Unit,
+    state: AuthUiState = AuthUiState()
 ) {
     var nombre by remember { mutableStateOf("") }
     var usuario by remember { mutableStateOf("") }
@@ -47,7 +51,7 @@ fun Registro(
     val formularioValido =
         nombre.isNotBlank() &&
                 usuario.isNotBlank() &&
-                password.isNotBlank() &&
+                password.length >= 10 &&
                 confirmarPassword.isNotBlank() &&
                 contrasenasCoinciden
 
@@ -64,7 +68,8 @@ fun Registro(
                     )
                 },
                 navigationIcon = {
-                    TextButton(onClick = onBackToLogin) {
+                    TextButton(onClick = onBackToLogin,
+                            enabled = !state.busy) {
                         Text(
                             text = "←",
                             fontSize = 26.sp,
@@ -146,6 +151,7 @@ fun Registro(
 
                     // Nombre completo
                     CampoRegistro(
+                        enabled = !state.busy,
                         titulo = "Nombre completo",
                         valor = nombre,
                         placeholder = "Ingresa tu nombre",
@@ -156,9 +162,11 @@ fun Registro(
 
                     // Usuario
                     CampoRegistro(
-                        titulo = "Usuario",
+                        enabled = !state.busy,
+                        titulo = "Correo institucional",
                         valor = usuario,
-                        placeholder = "Crea un nombre de usuario",
+                        placeholder = "tu.nombre@info.uas.edu.mx",
+                        keyboardType = KeyboardType.Email,
                         onValueChange = { usuario = it }
                     )
 
@@ -166,9 +174,10 @@ fun Registro(
 
                     // Contraseña
                     CampoRegistro(
+                        enabled = !state.busy,
                         titulo = "Contraseña",
                         valor = password,
-                        placeholder = "Crea una contraseña",
+                        placeholder = "Mínimo 10 caracteres",
                         onValueChange = { password = it },
                         esPassword = true,
                         mostrarPassword = mostrarPassword,
@@ -181,6 +190,7 @@ fun Registro(
 
                     // Confirmación de contraseña
                     CampoRegistro(
+                        enabled = !state.busy,
                         titulo = "Confirmar contraseña",
                         valor = confirmarPassword,
                         placeholder = "Repite tu contraseña",
@@ -213,16 +223,20 @@ fun Registro(
 
                     Spacer(modifier = Modifier.height(28.dp))
 
+                    AuthFeedback(state)
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     // Botón de registro
                     Button(
                         onClick = {
                             onRegister(
                                 nombre.trim(),
                                 usuario.trim(),
-                                password
+                                password,
+                                confirmarPassword
                             )
                         },
-                        enabled = formularioValido,
+                        enabled = formularioValido && !state.busy,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp),
@@ -232,7 +246,7 @@ fun Registro(
                         )
                     ) {
                         Text(
-                            text = "Crear cuenta",
+                            text = if (state.busy) "Creando cuenta…" else "Crear cuenta",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -252,6 +266,7 @@ fun Registro(
 
                         TextButton(
                             onClick = onBackToLogin,
+                            enabled = !state.busy,
                             contentPadding = PaddingValues(
                                 start = 6.dp,
                                 end = 0.dp
@@ -277,6 +292,8 @@ private fun CampoRegistro(
     valor: String,
     placeholder: String,
     onValueChange: (String) -> Unit,
+    enabled: Boolean = true,
+    keyboardType: KeyboardType = KeyboardType.Text,
     esPassword: Boolean = false,
     mostrarPassword: Boolean = false,
     onTogglePassword: (() -> Unit)? = null,
@@ -297,6 +314,7 @@ private fun CampoRegistro(
 
         OutlinedTextField(
             value = valor,
+            enabled = enabled,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
             placeholder = {
@@ -339,7 +357,7 @@ private fun CampoRegistro(
                 keyboardType = if (esPassword)
                     KeyboardType.Password
                 else
-                    KeyboardType.Text
+                    keyboardType
             ),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = RegistroBlue,
