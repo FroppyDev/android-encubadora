@@ -3,11 +3,101 @@ package com.fic.encubadorafic.data.repository
 import com.fic.encubadorafic.model.Project
 import javax.inject.Inject
 
+@javax.inject.Singleton
 class FakeProjectsRepository @Inject constructor() : ProjectsRepository {
+
+    private val created = linkedMapOf<Long, com.fic.encubadorafic.model.ProjectDetail>()
+    private var nextId = 100L
+
+    override suspend fun crearProyecto(
+        input: com.fic.encubadorafic.model.NewProject, published: Boolean,
+        authorId: Long, authorName: String,
+    ): com.fic.encubadorafic.model.ProjectDetail {
+
+        require(input.errors().isEmpty()) { "Revisa los datos del proyecto." }
+        require(authorId > 0 && authorName.isNotBlank()) { "Inicia sesión para crear el proyecto." }
+
+        return synchronized(created) {
+            val id = nextId++
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.ROOT)
+                .apply {
+                    timeZone = java.util.TimeZone.getTimeZone("UTC")
+                }.format(java.util.Date())
+            val slug = java.text.Normalizer.normalize(
+                input.title.trim().lowercase(java.util.Locale.ROOT),
+                java.text.Normalizer.Form.NFD
+            )
+                .replace(Regex("\\p{M}+"), "").replace(Regex("[^a-z0-9]+"), "-").trim('-')
+                .ifBlank { "proyecto" } + "-$id"
+            val project = Project(
+                id,
+                authorId,
+                requireNotNull(input.categoryId),
+                input.title.trim(),
+                slug,
+                input.summary.trim(),
+                input.description.trim(),
+                null,
+                if (published) "published" else "draft",
+                if (published) "public" else "private",
+                date,
+                date
+            )
+            com.fic.encubadorafic.model.ProjectDetail(
+                project, authorName,
+                com.fic.encubadorafic.model.DemoProjectOptions.categories.first { it.id == input.categoryId }.name,
+                technologies = com.fic.encubadorafic.model.DemoProjectOptions.technologies.filter { it.id in input.technologyIds }
+                    .map { it.name },
+                demo = true
+            ).also { created[id] = it }
+        }
+    }
+
+    override suspend fun obtenerDetalle(id: Long): com.fic.encubadorafic.model.ProjectDetail? {
+        synchronized(created) { created[id] }?.let { return it }
+        val project = obtenerProjectos().firstOrNull { it.id == id } ?: return null
+        val category = when (project.category_id) {
+            2L -> "Sustentabilidad"
+            3L -> "Educación"
+            4L -> "Internet de las cosas"
+            else -> "Desarrollo de software"
+        }
+        return com.fic.encubadorafic.model.ProjectDetail(
+            project = project,
+            authorName = when (project.user_id) {
+                1L -> "Ana López"; 2L -> "Diego Ramírez"; 3L -> "Sofía García"; else -> "Luis Hernández"
+            },
+            categoryName = category,
+            technologies = when (project.id) {
+                2L -> listOf("Kotlin", "Mapas"); 4L -> listOf(
+                    "Arduino",
+                    "Sensores"
+                ); else -> listOf("Kotlin", "Laravel", "PostgreSQL")
+            },
+            supports = (project.id * 7 + 5).toInt(),
+            updates = if (project.id == 3L) emptyList() else listOf(
+                com.fic.encubadorafic.model.ProjectUpdate(
+                    1,
+                    "Primer prototipo",
+                    "Definimos las pantallas principales y estamos reuniendo comentarios de estudiantes para mejorar la propuesta.",
+                    "2026-10-12"
+                ),
+                com.fic.encubadorafic.model.ProjectUpdate(
+                    2,
+                    "Así comenzó la idea",
+                    "Identificamos la necesidad y organizamos las primeras actividades del proyecto.",
+                    "2026-10-08"
+                )
+            ),
+            demo = true,
+        )
+    }
 
     override suspend fun obtenerProjectos(): List<Project> {
 
-        return listOf<Project>(
+        return synchronized(created) {
+            created.values.map { it.project }.reversed()
+        } + listOf<Project>(
             Project(
                 id = 1L,
                 user_id = 1L,

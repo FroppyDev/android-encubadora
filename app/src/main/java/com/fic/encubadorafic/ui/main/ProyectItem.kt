@@ -29,11 +29,14 @@ fun ProyectItem(
     modifier: Modifier = Modifier,
     name: String = "Nombre del proyecto",
     description: String = "Descripcion del proyecto",
-    category: String = "Categoria del proyecto"
+    category: String = "Categoria del proyecto",
+    categoryId: Long = 1L,
+    onClick: () -> Unit = {},
 ) {
 
     Card(
-        modifier = Modifier
+        onClick = onClick,
+        modifier = modifier
             .fillMaxWidth()
             .height(350.dp)
             .padding(16.dp)
@@ -45,14 +48,7 @@ fun ProyectItem(
         ) {
 
 
-            Image(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                painter = painterResource(R.drawable.gato1),
-                contentDescription = "prueba",
-                contentScale = ContentScale.Crop
-            )
+            com.fic.encubadorafic.ui.projects.ProjectCover(categoryId, Modifier.height(150.dp))
 
             Column(
                 modifier = Modifier

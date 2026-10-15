@@ -42,8 +42,11 @@ private fun GuestNavigation(auth: AuthViewModel, state: AuthUiState) {
         entry<Routes.Login> {
             Login(onLogin = auth::login, onGoToRegister = {
                 if (!state.busy) { auth.clearMessages(); backStack.add(Routes.Register) }
+            }, onForgotPassword = {
+                if (!state.busy) { auth.clearMessages(); backStack.add(Routes.Recovery) }
             }, state = state)
         }
+        entry<Routes.Recovery> { RecoveryScreen(onBack = { backStack.removeLastOrNull() }) }
         entry<Routes.Register> {
             Registro(onRegister = auth::register, onBackToLogin = {
                 if (!state.busy) { auth.clearMessages(); backStack.clear(); backStack.add(Routes.Login) }
@@ -62,7 +65,33 @@ private fun SignedInNavigation(auth: AuthViewModel, state: AuthUiState) {
                 entryProvider = entryProvider {
                     entry<Routes.Main> {
                         MainScreen(onNavigateToSearch = { if (!state.busy) backStack.add(Routes.Search) },
+                            onCreateProject = { if (!state.busy) backStack.add(Routes.CreateProject) },
+                            onNavigateToProject = { id -> if (!state.busy) backStack.add(Routes.ProjectDetail(id)) },
+                            onNavigateToProfile = { if (!state.busy) { auth.clearMessages(); backStack.add(Routes.Profile) } },
+                            onNavigateToCategories = { if (!state.busy) { auth.clearMessages(); backStack.add(Routes.Categories) } },
                             userName = state.user?.name.orEmpty(), onLogout = { if (!state.busy) auth.logout() })
+                    }
+                    entry<Routes.Profile> {
+                        LaunchedEffect(Unit) { auth.loadProfile() }
+                        com.fic.encubadorafic.ui.perfil.PerfilScreen(state, auth::saveProfile, auth::loadProfile,
+                            onBack = { auth.clearMessages(); backStack.removeLastOrNull() })
+                    }
+                    entry<Routes.Categories> {
+                        LaunchedEffect(Unit) { auth.loadCategories() }
+                        com.fic.encubadorafic.ui.categories.CategoriesScreen(state, auth::loadCategories,
+                            onBack = { auth.clearMessages(); backStack.removeLastOrNull() })
+                    }
+                    entry<Routes.CreateProject> {
+                        com.fic.encubadorafic.ui.projects.CreateProjectRoute(
+                            authorId = requireNotNull(state.user).id, authorName = requireNotNull(state.user).name,
+                            onBack = { backStack.removeLastOrNull() }, onCreated = { id ->
+                                backStack.removeLastOrNull()
+                                backStack.add(Routes.ProjectDetail(id))
+                            })
+                    }
+                    entry<Routes.ProjectDetail> { route ->
+                        com.fic.encubadorafic.ui.projects.ProjectDetailRoute(route.id, state.user?.id,
+                            onBack = { backStack.removeLastOrNull() })
                     }
                     entry<Routes.Search> { SearchScren() }
                 })

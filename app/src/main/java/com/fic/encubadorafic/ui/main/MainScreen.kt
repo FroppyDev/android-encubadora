@@ -1,6 +1,7 @@
 package com.fic.encubadorafic.ui.main
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -81,10 +82,15 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
     onNavigateToSearch: () -> Unit,
+    onNavigateToProject: (Long) -> Unit,
+    onCreateProject: () -> Unit,
     userName: String,
     onLogout: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    onNavigateToCategories: () -> Unit,
 ) {
 
+    androidx.compose.runtime.LaunchedEffect(Unit) { viewModel.cargarRutas() }
     val scope = rememberCoroutineScope()
     var expanded by remember { mutableStateOf(false) }
 
@@ -94,16 +100,18 @@ fun MainScreen(
         pageCount = { HomeTabs.entries.size })
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var listaColeccion = listOf<String>(
-        "Todos los proyectos"
-    )
-    var listaCategorias = listOf<String>(
-        "Arte",
-        "Cine y video",
-        "Comida",
-        "Juegos",
-        "Musica"
+        "Mis proyectos",
+        "Proyectos guardados"
     )
 
+    var listaCategorias = listOf<String>(
+        "Todos los proyectos",
+        "Arte",
+        "Multimedia",
+        "Educacipon",
+        "Entretenimiento",
+        "Videojuegos"
+    )
     ModalNavigationDrawer(
         modifier = Modifier
             .fillMaxHeight()
@@ -116,12 +124,16 @@ fun MainScreen(
                 drawerContainerColor = Color(Color.White.value)
             ) {
 
-                NavigationDrawerItem(label = { Text("Cerrar sesión") }, selected = false, onClick = onLogout)
                 Spacer(modifier = Modifier.height(24.dp))
 
 
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp)
+                        .clickable {
+                            onNavigateToProfile()
+                        },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 
@@ -138,8 +150,10 @@ fun MainScreen(
                     Text(
                         text = userName,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        textAlign = TextAlign.Center,
+                        fontSize = 18.sp,
+                        textAlign = TextAlign.Start,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }
@@ -156,7 +170,7 @@ fun MainScreen(
                         text = "Colecciones"
                     )
 
-                    Column (Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
                         listaColeccion.forEach { coleccion ->
                             NavigationDrawerItem(
                                 label = {
@@ -179,20 +193,12 @@ fun MainScreen(
                             )
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 10.dp)
-                ) {
                     Text(
                         text = "Categorias"
                     )
 
-                    Column (Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth()) {
                         listaCategorias.forEach { categoria ->
                             NavigationDrawerItem(
                                 label = {
@@ -215,12 +221,24 @@ fun MainScreen(
                             )
                         }
                     }
+
+                    Spacer(Modifier.weight(1f))
+
+                    NavigationDrawerItem(
+                        label = { Text("Cerrar sesión") },
+                        selected = false,
+                        onClick = onLogout
+                    )
                 }
             }
         }
     ) {
 
         Scaffold(
+            floatingActionButton = {
+                androidx.compose.material3.ExtendedFloatingActionButton(onClick = onCreateProject,
+                    containerColor = Color(0xFF246BCE), contentColor = Color.White) { Text("+ Crear proyecto") }
+            },
             topBar = {
                 Column(
                     modifier = Modifier.fillMaxWidth()
@@ -287,6 +305,7 @@ fun MainScreen(
                 when (HomeTabs.entries[page]) {
                     HomeTabs.Explorar -> {
                         LazyColumn(
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp),
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(10.dp)
@@ -296,8 +315,10 @@ fun MainScreen(
 
                                 ProyectItem(
                                     name = state.proyectos[item].title,
-                                    description = state.proyectos[item].description,
-                                    category = state.proyectos[item].summary
+                                    description = state.proyectos[item].summary,
+                                    category = "Ver proyecto",
+                                    categoryId = state.proyectos[item].category_id,
+                                    onClick = { onNavigateToProject(state.proyectos[item].id) }
                                 )
 
                             }

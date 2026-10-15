@@ -37,7 +37,7 @@ class MainViewModel @Inject constructor(
             _uiState.value = ProjectsUiState(cargando = true)
 
             try {
-                val proyectos = repository.obtenerProjectos()
+                val proyectos = repository.obtenerProjectos().filter { it.status == "published" && it.visibility == "public" && it.deleted_at == null }
 
                 _uiState.value = ProjectsUiState(
                     proyectos = proyectos,

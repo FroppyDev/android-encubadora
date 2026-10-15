@@ -30,6 +30,7 @@ private val Muted = Color(0xFF77869A)
 fun Login(
     onLogin: (String, String) -> Unit,
     onGoToRegister: () -> Unit,
+    onForgotPassword: () -> Unit = {},
     state: AuthUiState = AuthUiState(),
 ) {
     var usuario by remember { mutableStateOf("") }
@@ -219,6 +220,10 @@ fun Login(
 
                     AuthFeedback(state)
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    TextButton(onClick = onForgotPassword, enabled = !state.busy) {
+                        Text("Olvidé mi contraseña")
+                    }
 
                     // Botón de inicio de sesión
                     Button(
