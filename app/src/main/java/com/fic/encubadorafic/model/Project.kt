@@ -13,5 +13,6 @@ data class Project(
     val visibility: String,
     val created_at: String,
     val updated_at: String,
-    val deleted_at: String? = null
+    val deleted_at: String? = null,
+    val reactionsCount: Int = 0
 )

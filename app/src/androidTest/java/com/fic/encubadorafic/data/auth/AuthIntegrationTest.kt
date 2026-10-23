@@ -129,4 +129,27 @@ class AuthIntegrationTest {
             assertNull(KeystoreTokenStore(context, "https://other.example/api/v1/", namespace).read())
         } finally { store.clear(); context.deleteSharedPreferences(namespace) }
     }
+
+    @Test fun imageUploadUsesMultipartAndReturnsDefaultAndCustomUrls() {
+        val user = JSONObject(account).put("avatar_url", "http://localhost:8000/storage/users/avatars/test.png")
+            .put("cover_image_url", "http://localhost:8000/images/cover.jpe")
+        val captured = exchange(200, JSONObject().put("data", user).toString()) {
+            val result = it.uploadImage("image-token", "avatar", byteArrayOf(1,2,3), "image/png")
+            assertTrue(result.avatarUrl!!.endsWith("/storage/users/avatars/test.png"))
+            assertTrue(result.coverImageUrl!!.endsWith("/images/cover.jpe"))
+        }
+        assertTrue(captured.startsWith("POST /api/v1/user/images"))
+        assertTrue(captured.contains("Authorization: Bearer image-token", true))
+        assertTrue(captured.contains("multipart/form-data; boundary="))
+        assertTrue(captured.contains("name=\"avatar\"; filename=\"photo.png\""))
+        assertTrue(captured.contains("Content-Type: image/png"))
+        assertFalse(captured.contains("name=\"cover\""))
+    }
+
+    @Test fun imageValidationErrorsCanBeDisplayedByField() {
+        exchange(422, """{"errors":{"cover":["La portada supera el límite"]}}""") {
+            try { it.uploadImage("token", "cover", byteArrayOf(1), "image/jpeg"); fail() }
+            catch(e: AuthException) { assertEquals("La portada supera el límite", e.fields["cover"]) }
+        }
+    }
 }

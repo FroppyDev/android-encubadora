@@ -9,5 +9,5 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 abstract class ProjectsRepositoryModule {
     @Binds
-    abstract fun bindProjectsRepository(repository: FakeProjectsRepository): ProjectsRepository
+    abstract fun bindProjectsRepository(repository: ApiProjectsRepository): ProjectsRepository
 }

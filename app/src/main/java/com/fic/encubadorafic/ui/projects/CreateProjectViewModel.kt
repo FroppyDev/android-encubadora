@@ -35,6 +35,8 @@ class CreateProjectViewModel @Inject constructor(private val repository: Project
                 mutable.value = CreateProjectState(savedId = result.project.id)
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: com.fic.encubadorafic.data.auth.AuthException) {
+                mutable.value = CreateProjectState(error = e.fields.values.joinToString("\n").ifBlank { e.message })
             } catch (_: Exception) {
                 mutable.value =
                     CreateProjectState(error = "No se pudo guardar. Conservamos tus datos para que puedas reintentar.")

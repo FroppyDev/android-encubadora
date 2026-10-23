@@ -22,6 +22,7 @@ data class AuthUiState(
     val registered: Boolean = false,
     val categories: List<Category> = emptyList(),
     val categoriesLoaded: Boolean = false,
+    val technologies: List<com.fic.encubadorafic.model.ProjectOption> = emptyList(),
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -79,10 +80,36 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             mutableState.value.copy(user = user, message = "Perfil guardado correctamente.")
     }
 
+    fun uploadImage(uri: android.net.Uri, field: String) = perform {
+        val user = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val resolver = getApplication<Application>().contentResolver
+            val mime = resolver.getType(uri)
+            if (mime !in listOf("image/jpeg", "image/png", "image/webp"))
+                throw AuthException(422, "Selecciona una imagen JPG, PNG o WebP.")
+            val limit = (if (field == "avatar") 2 else 5) * 1024 * 1024
+            val bytes = resolver.openInputStream(uri)?.use { stream ->
+                val output = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (true) {
+                    val count = stream.read(buffer)
+                    if (count < 0) break
+                    if (output.size() + count > limit) throw AuthException(422,
+                        "La imagen supera el límite de ${limit / 1024 / 1024} MB.")
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            } ?: throw AuthException(422, "No se pudo leer la imagen seleccionada.")
+            repository.uploadImage(field, bytes, requireNotNull(mime))
+        }
+        mutableState.value = mutableState.value.copy(user = user, message = "Imagen actualizada correctamente.")
+    }
+
     fun loadCategories() = perform {
+        mutableState.value = mutableState.value.copy(categories = emptyList(), categoriesLoaded = false)
         val categories = repository.categories()
+        val technologies = repository.technologies()
         mutableState.value =
-            mutableState.value.copy(categories = categories, categoriesLoaded = true)
+            mutableState.value.copy(categories = categories, technologies = technologies, categoriesLoaded = true)
     }
 
     fun resend() = perform {

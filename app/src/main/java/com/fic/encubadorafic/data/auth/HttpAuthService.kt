@@ -54,6 +54,36 @@ class HttpAuthService(private val baseUrl: String, private val debug: Boolean) :
         }, json.getInt("last_page"))
     }
 
+    override fun uploadImage(token: String, field: String, bytes: ByteArray, mime: String): AuthUser {
+        require(field == "avatar" || field == "cover")
+        require(mime in listOf("image/jpeg", "image/png", "image/webp"))
+        val boundary = "Android-${java.util.UUID.randomUUID()}"
+        val extension = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; else -> "jpg" }
+        val output = java.io.ByteArrayOutputStream()
+        output.write(("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"photo.$extension\"\r\n" +
+            "Content-Type: $mime\r\n\r\n").toByteArray())
+        output.write(bytes)
+        output.write("\r\n--$boundary--\r\n".toByteArray())
+        return parseResponse { parseUser(request("user/images", "POST", token = token,
+            upload = output.toByteArray(), contentType = "multipart/form-data; boundary=$boundary").getJSONObject("data")) }
+    }
+
+    override fun technologies(token: String): List<com.fic.encubadorafic.model.ProjectOption> {
+        val result = mutableListOf<com.fic.encubadorafic.model.ProjectOption>()
+        var page = 1
+        do {
+            val json = request("technologies?page=$page", "GET", token = token)
+            val items = json.getJSONArray("data")
+            for (i in 0 until items.length()) {
+                val item = items.getJSONObject(i)
+                result.add(com.fic.encubadorafic.model.ProjectOption(item.getLong("id"), item.getString("name")))
+            }
+            val more = page < json.optInt("last_page", 1)
+            page++
+        } while (more)
+        return result.distinctBy { it.id }
+    }
+
     override fun resend(token: String) {
         request("email/verification-notification", "POST", JSONObject(), token)
     }
@@ -66,7 +96,9 @@ class HttpAuthService(private val baseUrl: String, private val debug: Boolean) :
         json.getLong("id"), json.getString("name"), json.getString("email"),
         json.has("email_verified_at") && !json.isNull("email_verified_at") && json.optString("email_verified_at")
             .isNotBlank(),
-        if (json.isNull("bio")) null else json.getString("bio")
+        if (json.isNull("bio")) null else json.getString("bio"),
+        MediaUrls.resolve(json.optString("avatar_url").takeUnless { it == "null" }, baseUrl, debug),
+        MediaUrls.resolve(json.optString("cover_image_url").takeUnless { it == "null" }, baseUrl, debug)
     )
 
     private fun endpoint(path: String): URI {
@@ -82,11 +114,13 @@ class HttpAuthService(private val baseUrl: String, private val debug: Boolean) :
         return URI(baseUrl.trimEnd('/') + "/" + path)
     }
 
-    private fun request(
+    fun request(
         path: String,
         method: String,
         body: JSONObject? = null,
         token: String? = null,
+        upload: ByteArray? = null,
+        contentType: String? = null,
     ): JSONObject {
         val connection = endpoint(path).toURL().openConnection() as HttpURLConnection
         try {
@@ -97,7 +131,12 @@ class HttpAuthService(private val baseUrl: String, private val debug: Boolean) :
                 false // Never forward a token to a redirect target.
             connection.setRequestProperty("Accept", "application/json")
             token?.let { connection.setRequestProperty("Authorization", "Bearer $it") }
-            if (body != null) {
+            if (upload != null) {
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", requireNotNull(contentType))
+                connection.setFixedLengthStreamingMode(upload.size)
+                connection.outputStream.use { it.write(upload) }
+            } else if (body != null) {
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 connection.outputStream.use {

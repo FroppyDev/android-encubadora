@@ -1,153 +1,105 @@
 package com.fic.encubadorafic.ui.search
 
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.pager.HorizontalPager
+import android.widget.Space
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.fic.encubadorafic.ui.main.HomeTabs
-import kotlinx.coroutines.launch
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.fic.encubadorafic.ui.main.MainViewModel
+import com.fic.encubadorafic.ui.main.ProyectItem
+import com.fic.encubadorafic.data.auth.Category
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchScren() {
-
-    var searchText by remember {
-        mutableStateOf("")
-    }
+fun SearchScren(
+    onBack: () -> Unit = {},
+    onOpen: (Long) -> Unit = {},
+    categories: List<Category> = emptyList(),
+) {
+    val vm: MainViewModel = hiltViewModel()
+    val state by vm.uiState.collectAsState()
+    var query by rememberSaveable { mutableStateOf("") }
+    var category by rememberSaveable { mutableStateOf<Long?>(null) }
     var expanded by remember { mutableStateOf(false) }
-    var listaCategorias = listOf<String>(
-        "Arte",
-        "Cine y video",
-        "Comida",
-        "Juegos",
-        "Musica"
-    )
+    LaunchedEffect(Unit) { vm.cargarRutas() }
+    val results = state.proyectos.filter {
+        (category == null || category == it.category_id) &&
+                (it.title.contains(query.trim(), true) || it.summary.contains(query.trim(), true))
+    }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .safeDrawingPadding()
+            .padding(16.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+            OutlinedTextField(
+                query,
+                { query = it },
+                Modifier.weight(1f),
+                label = { Text("Buscar proyectos") },
+                singleLine = true
+            )
+        }
+        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (state.cargando) LinearProgressIndicator(Modifier.fillMaxWidth())
+            else if (state.error != null) {
+                Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = vm::cargarRutas) { Text("Reintentar") }
+            } else Text("${results.size} resultados encontrados")
 
+            Spacer(Modifier.weight(1f))
 
-    Scaffold(
-        topBar = {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-
-                TopAppBar(title = {
-
-                    OutlinedTextField(
-
-                        value = searchText,
-
-                        onValueChange = {
-                            searchText = it
-                        },
-
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-
-                        placeholder = {
-                            "Busca un proyecto..."
-                        },
-
-                        leadingIcon = {
-                            Icon(Icons.Default.Search, null)
-                        },
-
-                        singleLine = true,
-
-                        shape = RoundedCornerShape(20.dp)
+            Box {
+                TextButton(
+                    modifier = Modifier.width(100.dp).height(40.dp),
+                    border = BorderStroke(1.dp, Color.Black),
+                    shape = RoundedCornerShape(10.dp),
+                    onClick = {
+                    expanded = true
+                }) {
+                    Text(
+                        overflow = TextOverflow.Ellipsis,
+                        text = categories.firstOrNull { it.id == category }?.name ?: "Todas"
                     )
-
-
-                }, navigationIcon = {
-                    IconButton(onClick = {
-
-                    }) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "back"
-                        )
+                }
+                DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Todas") },
+                        onClick = { category = null; expanded = false })
+                    categories.forEach { item ->
+                        DropdownMenuItem(
+                            text = { Text(item.name) },
+                            onClick = { category = item.id; expanded = false })
                     }
-                })
-
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-
-                    Text("137 resultados encontrados")
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    Box() {
-                        OutlinedButton(
-                            shape = RoundedCornerShape(5.dp),
-                            onClick = {
-                                expanded = !expanded
-                            }
-                        ) {
-                            Text("Categoria")
-                        }
-
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            listaCategorias.forEach { categoria ->
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(text = categoria)
-                                    },
-                                    onClick = {
-                                        expanded = false
-                                    }
-                                )
-
-                            }
-                        }
-                    }
-
                 }
             }
-        }) { paddingValues ->
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) { }
-
+        }
+        LazyColumn {
+            items(results.size, key = { results[it].id }) { index ->
+                val project = results[index]
+                ProyectItem(
+                    name = project.title,
+                    description = project.summary,
+                    category = categories.firstOrNull { it.id == project.category_id }?.name
+                        ?: "Categoría no disponible",
+                    categoryId = project.category_id,
+                    coverUrl = project.cover_image,
+                    onClick = { onOpen(project.id) })
+            }
+        }
     }
-
 }

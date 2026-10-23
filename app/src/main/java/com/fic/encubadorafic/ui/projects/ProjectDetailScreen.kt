@@ -25,17 +25,22 @@ fun ProjectDetailRoute(
     id: Long,
     userId: Long?,
     onBack: () -> Unit,
-    viewModel: ProjectDetailViewModel = hiltViewModel(),
+    categories: List<com.fic.encubadorafic.data.auth.Category> = emptyList(), viewModel: ProjectDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
     LaunchedEffect(id) { viewModel.load(id) }
+    val resolvedState = state.copy(detail = state.detail?.let { detail ->
+        detail.copy(categoryName = categories.firstOrNull { it.id == detail.project.category_id }?.name
+            ?: detail.categoryName)
+    })
     ProjectDetailScreen(
-        state,
+        resolvedState,
         userId,
         onBack,
         { viewModel.load(id) },
         viewModel::toggleSupport,
-        viewModel::requestCollaboration
+        viewModel::requestCollaboration,
+        viewModel::removeSupport
     )
 }
 
@@ -44,6 +49,7 @@ fun ProjectDetailRoute(
 fun ProjectDetailScreen(
     state: ProjectDetailState, userId: Long?, onBack: () -> Unit,
     onRetry: () -> Unit, onSupport: () -> Unit, onCollaborate: () -> Unit,
+    onRemoveSupport: () -> Unit = {},
 ) {
     val detail = state.detail
     var tab by rememberSaveable(detail?.project?.id) { mutableIntStateOf(0) }
@@ -74,12 +80,12 @@ fun ProjectDetailScreen(
             ) {
                 FilledTonalButton(
                     onClick = onSupport,
-                    enabled = detail.demo,
+                    enabled = !state.busy,
                     modifier = Modifier.heightIn(min = 52.dp)
                 ) {
                     Icon(
-                        if (detail.supported) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = if (detail.supported) "Quitar apoyo" else "Apoyar proyecto"
+                        if (detail.demo && detail.supported) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (detail.demo && detail.supported) "Quitar apoyo" else "Apoyar proyecto"
                     )
                     Spacer(Modifier.width(8.dp)); Text("${detail.supports}")
                 }
@@ -92,10 +98,10 @@ fun ProjectDetailScreen(
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 52.dp),
-                    enabled = detail.demo && !detail.collaborationPending,
+                    enabled = !state.busy && !detail.collaborationPending,
                     colors = ButtonDefaults.buttonColors(containerColor = blue)
                 ) {
-                    Text(if (detail.collaborationPending) "Solicitud pendiente" else "Quiero colaborar")
+                    Text(if (detail.collaborationPending) "Solicitud enviada" else "Quiero colaborar")
                 }
             }
         }
@@ -126,7 +132,13 @@ fun ProjectDetailScreen(
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
             ) {
-                ProjectCover(detail.project.category_id, Modifier.height(210.dp))
+                if (detail.project.cover_image != null) com.fic.encubadorafic.ui.perfil.RemoteImage(detail.project.cover_image, "Portada del proyecto", enabled = false, onClick = {}, modifier = Modifier.fillMaxWidth().height(210.dp))
+                else ProjectCover(detail.project.category_id, Modifier.height(210.dp))
+                state.error?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+                if (!detail.demo && detail.project.status == "published") Row {
+                    TextButton(onClick = onSupport, enabled = !state.busy) { Text("Apoyar") }
+                    TextButton(onClick = onRemoveSupport, enabled = !state.busy) { Text("Quitar mi apoyo") }
+                }
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
                         detail.categoryName.uppercase(),
@@ -233,11 +245,11 @@ fun ProjectDetailScreen(
     if (confirm) AlertDialog(
         onDismissRequest = { confirm = false },
         title = { Text("Colaborar en este proyecto") },
-        text = { Text("Esta demostración marcará una solicitud como pendiente en la app. No se enviará al creador.") },
+        text = { Text("Se enviará una solicitud al creador del proyecto para que pueda revisarla.") },
         confirmButton = {
             TextButton(onClick = {
                 confirm = false; onCollaborate()
-            }) { Text("Probar solicitud") }
+            }) { Text("Enviar solicitud") }
         },
         dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar") } })
 }

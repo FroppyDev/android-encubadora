@@ -16,28 +16,28 @@ import javax.inject.Inject
 data class ProjectsUiState(
     val proyectos: List<Project> = emptyList(),
     val cargando: Boolean = true,
-    val error: String? = null
+    val error: String? = null,
 )
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val repository: ProjectsRepository
-): ViewModel() {
+    private val repository: ProjectsRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProjectsUiState())
     val uiState: StateFlow<ProjectsUiState> = _uiState.asStateFlow()
 
 
-    init {
-        cargarRutas()
-    }
+    private var loadingJob: kotlinx.coroutines.Job? = null
 
     fun cargarRutas() {
-        viewModelScope.launch {
+        loadingJob?.cancel()
+        loadingJob = viewModelScope.launch {
             _uiState.value = ProjectsUiState(cargando = true)
 
             try {
-                val proyectos = repository.obtenerProjectos().filter { it.status == "published" && it.visibility == "public" && it.deleted_at == null }
+                val proyectos = repository.obtenerProjectos()
+                    .filter { it.status == "published" && it.visibility == "public" && it.deleted_at == null }
 
                 _uiState.value = ProjectsUiState(
                     proyectos = proyectos,
@@ -48,7 +48,8 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = ProjectsUiState(
                     cargando = false,
-                    error = "No se pudieron cargar los proyectos"
+                    error = (e as? com.fic.encubadorafic.data.auth.AuthException)?.message
+                        ?: "No se pudieron cargar los proyectos"
                 )
             }
         }

@@ -31,10 +31,16 @@ class CreateProjectRepositoryTest {
         assertEquals("private", a.visibility)
         assertFalse(repo.obtenerProjectos().filter { it.status == "published" && it.visibility == "public" }.contains(a))
     }
+    @Test fun backendCategoryIdsAndNamesArePreservedWithoutDemoLookup() = runBlocking {
+        val repo = FakeProjectsRepository()
+        val result = repo.crearProyecto(input.copy(categoryId = 42, categoryName = "Robótica"), true, 99, "Autora")
+        assertEquals(42L, result.project.category_id)
+        assertEquals("Robótica", result.categoryName)
+    }
     @Test fun invalidFormCannotCreateSampleRecords() = runBlocking {
         val repo = FakeProjectsRepository()
         val count = repo.obtenerProjectos().size
-        val invalid = NewProject(" ", "x".repeat(501), "", null, listOf(999))
+        val invalid = NewProject(" ", "x".repeat(501), "", null, listOf(-1))
         assertEquals(setOf("title", "summary", "description", "category", "technologies"), invalid.errors().keys)
         try { repo.crearProyecto(invalid, false, 99, "Autora"); fail() } catch (_: IllegalArgumentException) { }
         assertEquals(count, repo.obtenerProjectos().size)

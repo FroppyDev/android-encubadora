@@ -1,5 +1,6 @@
 package com.fic.encubadorafic.ui.main
 
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -84,6 +86,10 @@ fun MainScreen(
     onNavigateToSearch: () -> Unit,
     onNavigateToProject: (Long) -> Unit,
     onCreateProject: () -> Unit,
+    categories: List<com.fic.encubadorafic.data.auth.Category>,
+    categoriesLoading: Boolean,
+    categoriesError: String?,
+    onReloadCategories: () -> Unit,
     userName: String,
     onLogout: () -> Unit,
     onNavigateToProfile: () -> Unit,
@@ -104,14 +110,11 @@ fun MainScreen(
         "Proyectos guardados"
     )
 
-    var listaCategorias = listOf<String>(
-        "Todos los proyectos",
-        "Arte",
-        "Multimedia",
-        "Educacipon",
-        "Entretenimiento",
-        "Videojuegos"
-    )
+    var selectedCategoryId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Long?>(null) }
+    androidx.compose.runtime.LaunchedEffect(categories, categoriesLoading) {
+        if (!categoriesLoading && categories.none { it.id == selectedCategoryId }) selectedCategoryId = null
+    }
+    val visibleProjects = state.proyectos.filter { selectedCategoryId == null || it.category_id == selectedCategoryId }
     ModalNavigationDrawer(
         modifier = Modifier
             .fillMaxHeight()
@@ -187,9 +190,7 @@ fun MainScreen(
                                     }
                                 },
                                 selected = false,
-                                onClick = {
-
-                                },
+                                onClick = { selectedCategoryId = null; scope.launch { drawerState.close() } },
                             )
                         }
                     }
@@ -198,8 +199,9 @@ fun MainScreen(
                         text = "Categorias"
                     )
 
-                    Column(Modifier.fillMaxWidth()) {
-                        listaCategorias.forEach { categoria ->
+                    Column(Modifier.fillMaxWidth().heightIn(max = 280.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+                        if (!categoriesLoading && categories.isEmpty()) Text(if (categoriesError != null) "No se pudieron cargar las categorías" else "Sin categorías activas")
+                        categories.forEach { categoria ->
                             NavigationDrawerItem(
                                 label = {
 
@@ -211,13 +213,11 @@ fun MainScreen(
                                             contentDescription = "prueba"
                                         )
 
-                                        Text(text = categoria)
+                                        Text(text = categoria.name)
                                     }
                                 },
-                                selected = false,
-                                onClick = {
-
-                                },
+                                selected = selectedCategoryId == categoria.id,
+                                onClick = { selectedCategoryId = categoria.id; scope.launch { drawerState.close() } },
                             )
                         }
                     }
@@ -302,48 +302,23 @@ fun MainScreen(
                 userScrollEnabled = false
             ) { page ->
 
-                when (HomeTabs.entries[page]) {
-                    HomeTabs.Explorar -> {
-                        LazyColumn(
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp),
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(10.dp)
-                        ) {
-
-                            items(state.proyectos.size, key = { item -> item }) { item ->
-
-                                ProyectItem(
-                                    name = state.proyectos[item].title,
-                                    description = state.proyectos[item].summary,
-                                    category = "Ver proyecto",
-                                    categoryId = state.proyectos[item].category_id,
-                                    onClick = { onNavigateToProject(state.proyectos[item].id) }
-                                )
-
-                            }
-
-
-                        }
-                    }
-
-                    HomeTabs.Popular -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-
-                            Text("Pagina Popular")
-
-                        }
-                    }
-
-                    HomeTabs.Reciente -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-
-                            Text("Pagina Reciente")
-
+                val projects = when (HomeTabs.entries[page]) {
+                    HomeTabs.Popular -> visibleProjects.sortedByDescending { it.reactionsCount }
+                    HomeTabs.Reciente -> visibleProjects.sortedByDescending { it.created_at }
+                    else -> visibleProjects
+                }
+                Column(Modifier.fillMaxSize()) {
+                    androidx.compose.material3.TextButton(onClick = viewModel::cargarRutas, enabled = !state.cargando) { Text("Actualizar proyectos") }
+                    if (state.cargando) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                    state.error?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
+                    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 88.dp)) {
+                        if (!state.cargando && state.error == null && projects.isEmpty()) item { Text("No hay proyectos en esta categoría.", Modifier.padding(20.dp)) }
+                        items(projects.size, key = { projects[it].id }) { index ->
+                            val project = projects[index]
+                            ProyectItem(name = project.title, description = project.summary,
+                                category = categories.firstOrNull { it.id == project.category_id }?.name ?: "Categoría no disponible",
+                                categoryId = project.category_id, coverUrl = project.cover_image,
+                                onClick = { onNavigateToProject(project.id) })
                         }
                     }
                 }

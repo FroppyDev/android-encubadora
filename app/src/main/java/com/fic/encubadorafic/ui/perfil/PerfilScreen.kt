@@ -1,6 +1,10 @@
 package com.fic.encubadorafic.ui.perfil
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -10,9 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,8 +37,18 @@ fun PerfilScreen(
     onSave: (String, String) -> Unit,
     onRetry: () -> Unit,
     onBack: () -> Unit,
+    onUploadImage: (android.net.Uri, String) -> Unit = { _, _ -> },
+    projectsContent: @Composable () -> Unit = {},
 ) {
     val user = state.user ?: return
+    val avatarPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { onUploadImage(it, "avatar") }
+        }
+    val coverPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            uri?.let { onUploadImage(it, "cover") }
+        }
     var name by rememberSaveable(user.id, user.name) { mutableStateOf(user.name) }
     var bio by rememberSaveable(user.id, user.bio) { mutableStateOf(user.bio.orEmpty()) }
     var confirmExit by remember { mutableStateOf(false) }
@@ -112,8 +124,20 @@ fun PerfilScreen(
                                 .background(Color.White.copy(alpha = .07f), CircleShape)
                         )
 
+                        RemoteImage(
+                            user.coverImageUrl,
+                            "Portada",
+                            enabled = false,
+                            onClick = { },
+                            modifier = Modifier.matchParentSize()
+                        )
                         Surface(
                             Modifier
+                                .clickable(enabled = !state.busy) {
+                                    coverPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
                                 .align(Alignment.BottomEnd)
                                 .padding(12.dp),
                             color = Color.White.copy(alpha = .16f), shape = RoundedCornerShape(8.dp)
@@ -157,15 +181,37 @@ fun PerfilScreen(
                                     .border(5.dp, Color.White, CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    user.name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-                                        .take(2)
-                                        .joinToString("") { it.take(1) }.uppercase(),
-                                    color = ProfileNavy,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.headlineMedium
+                                RemoteImage(
+                                    user.avatarUrl,
+                                    "Foto de perfil",
+                                    Modifier.matchParentSize(),
+                                    enabled = !state.busy,
+                                    onClick = {
+                                        avatarPicker.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    }
                                 )
                             }
+                        }
+
+                        Text(
+                            "Perfil: hasta 2 MB‚ Portada: hasta 5 MB",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+
+                        if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                        state.fields["avatar"]?.let {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        state.fields["cover"]?.let {
+                            Text(
+                                it,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                         Text(
                             user.name,
@@ -180,62 +226,24 @@ fun PerfilScreen(
                         )
                         HorizontalDivider(color = Color(0xFFEDF1F6))
                         Text(user.bio?.takeIf { it.isNotBlank() }
-                            ?: "Comparte tus intereses y lo que te gustaría construir con la comunidad.",
+                            ?: "Comparte tus intereses y lo que te gustaria construir con la comunidad.",
                             color = ProfileMuted, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
 
-            Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(
-                        "Proyectos y colaboraciones", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold, color = ProfileNavy
-                    )
-                    Text(
-                        "Los proyectos de los que formas parte, en un mismo lugar.",
-                        style = MaterialTheme.typography.bodyMedium, color = ProfileMuted
-                    )
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFFF4F7FB))
-                            .padding(22.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(Icons.Outlined.Groups, null, Modifier.size(38.dp), tint = ProfileBlue)
-                        Text(
-                            "Un espacio para crear en equipo",
-                            color = ProfileNavy,
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Text(
-                            "Aquí podrás consultar los proyectos a los que perteneces o en los que colaboras.",
-                            color = ProfileMuted, style = MaterialTheme.typography.bodySmall,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Text(
-                            "Próximamente",
-                            color = ProfileBlue,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                }
-            }
+            projectsContent()
 
             Surface(shape = RoundedCornerShape(20.dp), color = Color.White) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        "Editar información",
+                        "Editar informacion",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = ProfileNavy
                     )
                     Text(
-                        "Tu nombre y biografía ayudan a que otros estudiantes te conozcan.",
+                        "Tu nombre y biografia ayudan a que otros estudiantes te conozcan.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = ProfileMuted
                     )
@@ -252,7 +260,7 @@ fun PerfilScreen(
                     OutlinedTextField(
                         value = bio,
                         onValueChange = { bio = it },
-                        label = { Text("Biografía") },
+                        label = { Text("Biografia") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 4,
                         maxLines = 8,
@@ -261,6 +269,7 @@ fun PerfilScreen(
                         isError = state.fields.containsKey("bio"),
                         supportingText = { Text(state.fields["bio"] ?: "${bio.length}/2000") })
                     state.message?.let { Text(it, color = ProfileBlue) }
+
                     Button(
                         onClick = { onSave(name, bio) },
                         enabled = changed && !state.busy,
@@ -270,6 +279,7 @@ fun PerfilScreen(
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = ProfileBlue)
                     ) { Text("Guardar cambios") }
+
                     if (state.error != null) TextButton(
                         onClick = onRetry,
                         enabled = !state.busy && !changed
@@ -281,8 +291,8 @@ fun PerfilScreen(
     }
     if (confirmExit) AlertDialog(
         onDismissRequest = { confirmExit = false },
-        title = { Text("¿Descartar los cambios?") },
-        text = { Text("Los cambios que no guardaste se perderán.") },
+        title = { Text("¿Quieres descartar los cambios?") },
+        text = { Text("Los cambios que no guardaste se perderan.") },
         confirmButton = {
             TextButton(onClick = {
                 confirmExit = false; onBack()

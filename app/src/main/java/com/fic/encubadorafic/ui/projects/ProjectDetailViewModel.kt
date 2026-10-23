@@ -16,6 +16,7 @@ data class ProjectDetailState(
     val loading: Boolean = true,
     val detail: ProjectDetail? = null,
     val error: String? = null,
+    val busy: Boolean = false,
 )
 
 @HiltViewModel
@@ -47,10 +48,15 @@ class ProjectDetailViewModel @Inject constructor(private val repository: Project
         }
     }
 
-    // Only demo state is mutated. Replace these callbacks with repository operations when integrating the API.
+    // Demo behavior remains available for previews/tests; real actions use the API.
     fun toggleSupport() {
         val detail = mutable.value.detail ?: return
-        if (!detail.demo || detail.project.status != "published") return
+        if (detail.project.status != "published" || mutable.value.busy) return
+        if (!detail.demo) {
+            val api = repository as? com.fic.encubadorafic.data.repository.ApiProjectsRepository ?: return
+            mutate { detail.copy(supported = true, supports = api.support(detail.project.id, true)) }
+            return
+        }
         update(
             detail.copy(
                 supported = !detail.supported,
@@ -61,8 +67,26 @@ class ProjectDetailViewModel @Inject constructor(private val repository: Project
 
     fun requestCollaboration() {
         val detail = mutable.value.detail ?: return
-        if (!detail.demo || detail.project.status != "published") return
-        update(detail.copy(collaborationPending = true))
+        if (mutable.value.busy || detail.project.status != "published") return
+        if (detail.demo) { update(detail.copy(collaborationPending = true)); return }
+        val api = repository as? com.fic.encubadorafic.data.repository.ApiProjectsRepository ?: return
+        mutate { api.collaborate(detail.project.id); detail.copy(collaborationPending = true) }
+    }
+
+    fun removeSupport() {
+        val detail = mutable.value.detail ?: return
+        if (mutable.value.busy) return
+        val api = repository as? com.fic.encubadorafic.data.repository.ApiProjectsRepository ?: return
+        mutate { detail.copy(supported = false, supports = api.support(detail.project.id, false)) }
+    }
+
+    private fun mutate(action: suspend () -> ProjectDetail) {
+        mutable.value = mutable.value.copy(busy = true, error = null)
+        viewModelScope.launch {
+            try { mutable.value = ProjectDetailState(loading = false, detail = action()) }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { mutable.value = mutable.value.copy(busy = false, error = e.message ?: "No se pudo completar la operación.") }
+        }
     }
 
     private fun update(detail: ProjectDetail) {

@@ -1,7 +1,5 @@
 package com.fic.encubadorafic.ui.main
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,17 +9,10 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.fic.encubadorafic.R
 
 @Preview
 @Composable
@@ -31,6 +22,7 @@ fun ProyectItem(
     description: String = "Descripcion del proyecto",
     category: String = "Categoria del proyecto",
     categoryId: Long = 1L,
+    coverUrl: String? = null,
     onClick: () -> Unit = {},
 ) {
 
@@ -48,7 +40,8 @@ fun ProyectItem(
         ) {
 
 
-            com.fic.encubadorafic.ui.projects.ProjectCover(categoryId, Modifier.height(150.dp))
+            if (coverUrl != null) com.fic.encubadorafic.ui.perfil.RemoteImage(coverUrl, "Portada del proyecto", enabled = false, onClick = {}, modifier = Modifier.fillMaxWidth().height(150.dp))
+            else com.fic.encubadorafic.ui.projects.ProjectCover(categoryId, Modifier.height(150.dp))
 
             Column(
                 modifier = Modifier

@@ -45,7 +45,7 @@ class FakeProjectsRepository @Inject constructor() : ProjectsRepository {
             )
             com.fic.encubadorafic.model.ProjectDetail(
                 project, authorName,
-                com.fic.encubadorafic.model.DemoProjectOptions.categories.first { it.id == input.categoryId }.name,
+                input.categoryName.ifBlank { "Categoría no disponible" },
                 technologies = com.fic.encubadorafic.model.DemoProjectOptions.technologies.filter { it.id in input.technologyIds }
                     .map { it.name },
                 demo = true

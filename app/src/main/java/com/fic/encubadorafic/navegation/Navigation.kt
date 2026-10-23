@@ -64,7 +64,10 @@ private fun SignedInNavigation(auth: AuthViewModel, state: AuthUiState) {
             NavDisplay(backStack = backStack, onBack = { if (!state.busy && backStack.size > 1) backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
                     entry<Routes.Main> {
+                        LaunchedEffect(Unit) { auth.loadCategories() }
                         MainScreen(onNavigateToSearch = { if (!state.busy) backStack.add(Routes.Search) },
+                            categories = state.categories, categoriesLoading = state.busy,
+                            categoriesError = state.error, onReloadCategories = auth::loadCategories,
                             onCreateProject = { if (!state.busy) backStack.add(Routes.CreateProject) },
                             onNavigateToProject = { id -> if (!state.busy) backStack.add(Routes.ProjectDetail(id)) },
                             onNavigateToProfile = { if (!state.busy) { auth.clearMessages(); backStack.add(Routes.Profile) } },
@@ -74,7 +77,9 @@ private fun SignedInNavigation(auth: AuthViewModel, state: AuthUiState) {
                     entry<Routes.Profile> {
                         LaunchedEffect(Unit) { auth.loadProfile() }
                         com.fic.encubadorafic.ui.perfil.PerfilScreen(state, auth::saveProfile, auth::loadProfile,
-                            onBack = { auth.clearMessages(); backStack.removeLastOrNull() })
+                            onBack = { auth.clearMessages(); backStack.removeLastOrNull() },
+                            onUploadImage = auth::uploadImage,
+                            projectsContent = { com.fic.encubadorafic.ui.perfil.OwnProjects { id -> backStack.add(Routes.ProjectDetail(id)) } })
                     }
                     entry<Routes.Categories> {
                         LaunchedEffect(Unit) { auth.loadCategories() }
@@ -82,7 +87,11 @@ private fun SignedInNavigation(auth: AuthViewModel, state: AuthUiState) {
                             onBack = { auth.clearMessages(); backStack.removeLastOrNull() })
                     }
                     entry<Routes.CreateProject> {
+                        LaunchedEffect(Unit) { auth.loadCategories() }
                         com.fic.encubadorafic.ui.projects.CreateProjectRoute(
+                            technologyOptions = state.technologies,
+                            categories = state.categories.map { com.fic.encubadorafic.model.ProjectOption(it.id, it.name) },
+                            categoriesLoading = state.busy, categoriesError = state.error, onReloadCategories = auth::loadCategories,
                             authorId = requireNotNull(state.user).id, authorName = requireNotNull(state.user).name,
                             onBack = { backStack.removeLastOrNull() }, onCreated = { id ->
                                 backStack.removeLastOrNull()
@@ -90,10 +99,10 @@ private fun SignedInNavigation(auth: AuthViewModel, state: AuthUiState) {
                             })
                     }
                     entry<Routes.ProjectDetail> { route ->
-                        com.fic.encubadorafic.ui.projects.ProjectDetailRoute(route.id, state.user?.id,
+                        com.fic.encubadorafic.ui.projects.ProjectDetailRoute(route.id, state.user?.id, categories = state.categories,
                             onBack = { backStack.removeLastOrNull() })
                     }
-                    entry<Routes.Search> { SearchScren() }
+                    entry<Routes.Search> { SearchScren(onBack = { backStack.removeLastOrNull() }, onOpen = { backStack.add(Routes.ProjectDetail(it)) }, categories = state.categories) }
                 })
         }
     }

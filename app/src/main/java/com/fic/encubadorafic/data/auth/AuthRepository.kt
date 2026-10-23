@@ -4,7 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-data class AuthUser(val id: Long, val name: String, val email: String, val verified: Boolean, val bio: String? = null)
+data class AuthUser(val id: Long, val name: String, val email: String, val verified: Boolean, val bio: String? = null, val avatarUrl: String? = null, val coverImageUrl: String? = null)
 
 class LoginSession(val user: AuthUser, val token: String)
 class AuthException(
@@ -29,6 +29,11 @@ interface AuthService {
     fun updateProfile(token: String, name: String, bio: String?): AuthUser
 
     fun categories(token: String, page: Int): CategoryPage
+
+    fun uploadImage(token: String, field: String, bytes: ByteArray, mime: String): AuthUser =
+        throw UnsupportedOperationException()
+
+    fun technologies(token: String): List<com.fic.encubadorafic.model.ProjectOption> = emptyList()
 
     fun resend(token: String)
 
@@ -127,6 +132,14 @@ class AuthRepository(private val service: AuthService, private val tokens: Token
             } while (more)
             result.values.toList()
         }
+    }
+
+    suspend fun uploadImage(field: String, bytes: ByteArray, mime: String): AuthUser = withContext(Dispatchers.IO) {
+        authenticated(requireToken()) { service.uploadImage(it, field, bytes, mime) }
+    }
+
+    suspend fun technologies() = withContext(Dispatchers.IO) {
+        authenticated(requireToken()) { service.technologies(it) }
     }
 
     suspend fun resend() = withContext(Dispatchers.IO) {

@@ -21,6 +21,11 @@ import com.fic.encubadorafic.model.*
 @Composable
 fun CreateProjectRoute(
     authorId: Long, authorName: String, onBack: () -> Unit, onCreated: (Long) -> Unit,
+    categories: List<ProjectOption>,
+    categoriesLoading: Boolean,
+    categoriesError: String?,
+    onReloadCategories: () -> Unit,
+    technologyOptions: List<ProjectOption> = emptyList(),
     vm: CreateProjectViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsState()
@@ -30,6 +35,8 @@ fun CreateProjectRoute(
     CreateProjectScreen(
         state,
         onBack,
+        categories = categories, categoriesLoading = categoriesLoading, technologyOptions = technologyOptions,
+        categoriesError = categoriesError, onReloadCategories = onReloadCategories,
         onSave = { input, published -> vm.save(input, published, authorId, authorName) })
 }
 
@@ -39,6 +46,11 @@ fun CreateProjectScreen(
     state: CreateProjectState,
     onBack: () -> Unit,
     onSave: (NewProject, Boolean) -> Unit,
+    categories: List<ProjectOption> = emptyList(),
+    categoriesLoading: Boolean = false,
+    categoriesError: String? = null,
+    onReloadCategories: () -> Unit = {},
+    technologyOptions: List<ProjectOption> = emptyList(),
 ) {
     var title by rememberSaveable { mutableStateOf("") }
     var summary by rememberSaveable { mutableStateOf("") }
@@ -49,7 +61,9 @@ fun CreateProjectScreen(
     var discard by remember { mutableStateOf(false) }
     var publishConfirmation by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
-    val input = NewProject(title, summary, description, categoryId, technologies)
+    val selectedCategory = categories.firstOrNull { it.id == categoryId }
+    val input = NewProject(title, summary, description, selectedCategory?.id, technologies.filter { id -> technologyOptions.any { it.id == id } }, selectedCategory?.name.orEmpty())
+    val catalogReady = !categoriesLoading && categoriesError == null && categories.isNotEmpty()
     val errors = if (submitted) input.errors() else emptyMap()
     val dirty = title.isNotEmpty() || summary.isNotEmpty() || description.isNotEmpty() || categoryId != null || technologies.isNotEmpty()
     val navy = Color(0xFF142D4E)
@@ -127,11 +141,18 @@ fun CreateProjectScreen(
                                     ?: "${summary.length}/500 · Una explicación breve de tu idea"
                             )
                         })
+                    if (categoriesLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (categoriesError != null) Text(categoriesError, color = MaterialTheme.colorScheme.error)
+                    if (!categoriesLoading && categoriesError == null && categories.isEmpty()) Text("No hay categorías activas disponibles.")
+                    TextButton(onClick = onReloadCategories, enabled = !state.busy && !categoriesLoading) {
+                        Text(if (categoriesError != null) "Reintentar categorías" else "Actualizar categorías")
+                    }
+                    if (categoryId != null && selectedCategory == null && !categoriesLoading) Text("La categoría seleccionada ya no está disponible. Elige otra.", color = MaterialTheme.colorScheme.error)
                     ExposedDropdownMenuBox(
                         expanded = expanded,
-                        onExpandedChange = { if (!state.busy) expanded = it }) {
+                        onExpandedChange = { if (!state.busy && catalogReady) expanded = it }) {
                         OutlinedTextField(
-                            value = DemoProjectOptions.categories.firstOrNull { it.id == categoryId }?.name.orEmpty(),
+                            value = categories.firstOrNull { it.id == categoryId }?.name.orEmpty(),
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Categoría") },
@@ -148,7 +169,7 @@ fun CreateProjectScreen(
                                 )
                             })
                         ExposedDropdownMenu(expanded, onDismissRequest = { expanded = false }) {
-                            DemoProjectOptions.categories.forEach { option ->
+                            categories.forEach { option ->
                                 DropdownMenuItem(
                                     text = { Text(option.name) },
                                     onClick = { categoryId = option.id; expanded = false })
@@ -188,7 +209,7 @@ fun CreateProjectScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DemoProjectOptions.technologies.forEach { option ->
+                        technologyOptions.forEach { option ->
                             FilterChip(
                                 selected = option.id in technologies,
                                 onClick = {
@@ -208,7 +229,7 @@ fun CreateProjectScreen(
             if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             Button(
                 onClick = {
-                    submitted = true; if (input.errors().isEmpty()) publishConfirmation = true
+                    submitted = true; if (catalogReady && input.errors().isEmpty()) publishConfirmation = true
                 },
                 enabled = !state.busy, modifier = Modifier
                     .fillMaxWidth()
@@ -216,13 +237,13 @@ fun CreateProjectScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = blue)
             ) { Text("Publicar proyecto") }
             OutlinedButton(
-                onClick = { submitted = true; if (input.errors().isEmpty()) onSave(input, false) },
+                onClick = { submitted = true; if (catalogReady && input.errors().isEmpty()) onSave(input, false) },
                 enabled = !state.busy, modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 52.dp)
             ) { Text("Guardar borrador") }
             Text(
-                "El borrador necesita los datos básicos y no aparece en Explorar. Al publicar, el proyecto se agrega al catálogo de prueba.",
+                "El borrador necesita los datos básicos y no aparece en Explorar. Al publicar, el proyecto se agrega al catálogo de proyectos.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -230,7 +251,7 @@ fun CreateProjectScreen(
     if (publishConfirmation) AlertDialog(
         onDismissRequest = { publishConfirmation = false },
         title = { Text("¿Publicar este proyecto?") },
-        text = { Text("Aparecerá en Explorar dentro de esta sesión de prueba.") },
+        text = { Text("El proyecto se guardará en tu cuenta y aparecerá en Explorar.") },
         confirmButton = {
             TextButton(onClick = {
                 publishConfirmation = false; onSave(
